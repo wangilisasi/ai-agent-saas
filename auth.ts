@@ -4,28 +4,48 @@ import { authConfig } from "./auth.config"
 import { z } from "zod"
 import bcrypt from "bcrypt"
 import { loginSchema } from "./src/lib/schemas/auth"
-
+import { v4 as uuidv4 } from "uuid"
 import { prisma } from "./src/lib/db"
 import { PrismaAdapter } from "@auth/prisma-adapter"
+import { encode as defaultEncode } from "next-auth/jwt"
+
+const adapter = PrismaAdapter(prisma);
  
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
-    adapter: PrismaAdapter(prisma),
-    session: { strategy: "jwt" }, // Correctly handle sessions via the adapter
+    adapter: adapter,
+    //session: { strategy: "jwt" }, // Correctly handle sessions via the adapter
 
     callbacks: {
-        // These callbacks correctly link the Credentials provider with database sessions
-        async jwt({ token, user }) {
-            if (user) {
-                token.id = user.id;
+            async jwt({ token, account }) {
+              if (account?.provider === "credentials") {
+                token.credentials = true;
+              }
+              return token;
+            },
+    },
+    jwt: {
+        encode: async function (params) {
+          if (params.token?.credentials) {
+            const sessionToken = uuidv4();
+    
+            if (!params.token.sub) {
+              throw new Error("No user ID found in token");
             }
-            return token;
-        },
-        async session({ session, token }) {
-            if (token.id && session.user) {
-                session.user.id = token.id as string;
+    
+            const createdSession = await adapter?.createSession?.({
+              sessionToken: sessionToken,
+              userId: params.token.sub,
+              expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            });
+    
+            if (!createdSession) {
+              throw new Error("Failed to create session");
             }
-            return session;
+    
+            return sessionToken;
+          }
+          return defaultEncode(params);
         },
     },
 
