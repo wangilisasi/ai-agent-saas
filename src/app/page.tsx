@@ -18,21 +18,6 @@ export default async function HomePage() {
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">
-                Welcome, {session.user.name || session.user.email}
-              </span>
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/login" });
-                }}
-              >
-                <Button type="submit" className="bg-red-600 text-white hover:bg-red-700">
-                  Sign Out
-                </Button>
-              </form>
-            </div>
           </div>
         </div>
       </nav>
